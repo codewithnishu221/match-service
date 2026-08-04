@@ -39,22 +39,25 @@ public class MatchServiceImpl implements MatchService {
         log.info("Cosine similarity score: {}", similarityScore);
 
         String prompt = """
-                You are a resume screening expert.
-                
-                RESUME:
-                %s
-                
-                JOB DESCRIPTION
-                %s
-                
-                Analyze how well this resume matches the job description.
-                Respond in exactly this JSON format and nothing else, no extra text:
-                {
-                    "score": <number between 0 and 100>,
-                    "explanation": "<2-3 sentences explaining the match quality>",
-                    "missingSkills": ["<skill1>", "<skill2>", "<skill3>"]
-                }
-                """.formatted(resumeText, jobDescriptionText);
+        You are an expert technical recruiter and resume screening specialist.
+        
+        RESUME TEXT:
+        %s
+        
+        JOB DESCRIPTION:
+        %s
+        
+        Analyze the candidate's resume against the job description.
+        1. Determine missing skills: identify key technical skills, tools, or requirements in the Job Description that are NOT mentioned or implied in the Resume.
+        2. Provide a 2-3 sentence explanation of the match.
+        
+        Respond ONLY in raw JSON matching this structure (no markdown formatting, no code block backticks):
+        {
+            "score": 0.0,
+            "explanation": "your explanation here",
+            "missingSkills": ["Skill1", "Skill2", "Skill3"]
+        }
+        """.formatted(resumeText, jobDescriptionText);
         try {
             String llmResponse = chatModel.call(prompt);
             log.info("LLM raw response: {}", llmResponse);
@@ -83,8 +86,8 @@ public class MatchServiceImpl implements MatchService {
 
         for (int i = 0; i < vectorA.length; i++) {
             dotProduct += vectorA[i] * vectorB[i];
-            magnitudeA += vectorA[i] * vectorB[i];
-            magnitudeB += vectorA[i] * vectorB[i];
+            magnitudeA += vectorA[i] * vectorA[i];
+            magnitudeB += vectorB[i] * vectorB[i];
         }
         magnitudeA = Math.sqrt(magnitudeA);
         magnitudeB = Math.sqrt(magnitudeB);
