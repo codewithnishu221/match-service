@@ -1,11 +1,14 @@
 package match.service.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import lombok.RequiredArgsConstructor;
 import match.service.security.CustomUserDetailsService;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.jackson.Jackson2ObjectMapperBuilderCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -38,8 +41,9 @@ public class AppConfig {
                 .build();
    }
    @Bean
-    public ObjectMapper objectMapper(){
-        return  new ObjectMapper();
+    public ObjectMapper objectMapper(Jackson2ObjectMapperBuilder builder){
+        return  builder.modules(new JavaTimeModule()).build();
    }
+
 
     }
