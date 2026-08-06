@@ -6,11 +6,18 @@ import lombok.extern.slf4j.Slf4j;
 import match.service.client.UserServiceClient;
 import match.service.dto.MatchScoreRequest;
 import match.service.dto.MatchScoreResponse;
+import match.service.dto.ResumeGenerationRequest;
+import match.service.dto.ResumeGenerationResponse;
+import match.service.exceptions.ResumeContentNotFoundException;
 import match.service.service.MatchService;
+import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.ollama.OllamaChatModel;
+import org.springframework.ai.ollama.api.OllamaOptions;
 import org.springframework.ai.ollama.OllamaEmbeddingModel;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Value;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 
@@ -23,6 +30,9 @@ public class MatchServiceImpl implements MatchService {
     private final OllamaEmbeddingModel embeddingModel;
     private final UserServiceClient userServiceClient;
     private final ObjectMapper objectMapper;
+
+    @Value("${app.generation.temperature}")
+    private double temp;
 
     @Override
     public MatchScoreResponse calculateMatchScore(MatchScoreRequest request, String authToken) {
@@ -96,5 +106,73 @@ public class MatchServiceImpl implements MatchService {
 
         return dotProduct / (magnitudeA * magnitudeB);
     }
+
+    @Override
+    public ResumeGenerationResponse generateTailoredResume(ResumeGenerationRequest request, String authToken) {
+        Long resumeId = request.getResumeId();
+        String resumeParsedText = userServiceClient.getResumeText(resumeId, authToken);
+        if( resumeParsedText == null || resumeParsedText.isBlank()){
+            throw new ResumeContentNotFoundException("Resume content could not be found or is empty for resume ID: " + request.getResumeId());
+        }
+        String promptMessage = promptBuilder(request, resumeParsedText);
+
+        Prompt prompt = new Prompt(
+            promptMessage,
+            OllamaOptions.builder()
+            .temperature(temp)
+            .build()
+        );
+        try{
+
+        String ollamaResponseContent = chatModel.call(prompt).getResult().getOutput().getText();
+       log.info("LLM raw tailored resume response: {}", ollamaResponseContent);
+       String cleanedResponse = ollamaResponseContent.replace("```jaon","")
+       .replace("```", "")
+       .trim();
+
+        ResumeGenerationResponse response = objectMapper.readValue(cleanedResponse, ResumeGenerationResponse.class);
+        response.setGeneratedAt(LocalDateTime.now());
+        return response; 
+    } catch( Exception e){
+       log.error("Failed to generate or parse tailored resume from LLM", e);
+            throw new RuntimeException("Failed to generate tailored resume. Please try again later.", e); 
+    }
+}
+
+      public String promptBuilder(ResumeGenerationRequest request, String resumeParsedText){
+           return String.format(
+            """
+            You are an expert career consultant and professional resume writer. 
+            Your task is to tailor the candidate's base resume to align closely with a specific job description.
+            
+            Target Job Details:
+            - Company Name: %s
+            - Job Title: %s
+            - Job Description: 
+            %s
+            
+            Candidate's Original Resume Text:
+            %s
+            
+            Instructions:
+            1. Rewrite and optimize the resume text to highlight relevant skills, achievements, and keywords matching the target job description. Maintain absolute truthfulness to the candidate's original background.
+            2. Write a professional matching cover letter.
+            3. List the core key changes made to the existing resume text.
+            4.Reorder experience bullet points to highlight most relevant ones first, incorporate keywords from the JD naturally (not keyword stuffing), keep all factual information accurate (never invent experience), adjust summary section to match the role, identify 3-5 key changes made.
+            
+            Respond ONLY in raw JSON matching this exact structure (no markdown formatting, no code block backticks):
+            {
+                "tailoredResume": "Full text of the tailored resume here...",
+                "coverLetter": "Full text of the cover letter here...",
+                "keyChanges": ["Change 1", "Change 2", "Change 3"]
+            }
+            """,
+            request.getCompanyName(),
+            request.getJobTitle(),
+            request.getJobDescription(),
+            resumeParsedText
+        );
+
+      }
 
 }
