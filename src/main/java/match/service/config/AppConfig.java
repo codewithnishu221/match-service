@@ -2,6 +2,8 @@ package match.service.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import lombok.AllArgsConstructor;
+import lombok.NoArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import match.service.security.CustomUserDetailsService;
 import org.springframework.beans.factory.annotation.Value;
@@ -16,6 +18,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.client.RestClient;
 
 @Configuration
+@AllArgsConstructor
 @RequiredArgsConstructor
 public class AppConfig {
 
