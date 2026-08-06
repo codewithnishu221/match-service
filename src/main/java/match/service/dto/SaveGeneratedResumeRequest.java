@@ -1,18 +1,16 @@
 package match.service.dto;
 
-import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.RequiredArgsConstructor;
 
 @Data
-@AllArgsConstructor
 @NoArgsConstructor
-public class ResumeGenerationRequest {
-    @NotBlank
-    private Long resumeId;
-    @NotBlank
-    private String jobDescription;
+@AllArgsConstructor
+public class SaveGeneratedResumeRequest {
+    private String generatedResumeText;
+    private Long userId;
     private String jobTitle;
     private String companyName;
 }

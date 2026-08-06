@@ -2,13 +2,12 @@ package match.service.service.Impl;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.AllArgsConstructor;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import match.service.client.UserServiceClient;
-import match.service.dto.MatchScoreRequest;
-import match.service.dto.MatchScoreResponse;
-import match.service.dto.ResumeGenerationRequest;
-import match.service.dto.ResumeGenerationResponse;
+import match.service.dto.*;
 import match.service.exceptions.ResumeContentNotFoundException;
+import match.service.service.JwtService;
 import match.service.service.MatchService;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.ollama.OllamaChatModel;
@@ -22,7 +21,7 @@ import java.util.List;
 
 
 @Service
-@AllArgsConstructor
+@RequiredArgsConstructor
 @Slf4j
 public class MatchServiceImpl implements MatchService {
 
@@ -30,7 +29,7 @@ public class MatchServiceImpl implements MatchService {
     private final OllamaEmbeddingModel embeddingModel;
     private final UserServiceClient userServiceClient;
     private final ObjectMapper objectMapper;
-
+    private final JwtService jwtService;
     @Value("${app.generation.temperature}")
     private double temp;
 
@@ -126,12 +125,21 @@ public class MatchServiceImpl implements MatchService {
 
         String ollamaResponseContent = chatModel.call(prompt).getResult().getOutput().getText();
        log.info("LLM raw tailored resume response: {}", ollamaResponseContent);
-       String cleanedResponse = ollamaResponseContent.replace("```jaon","")
+       String cleanedResponse = ollamaResponseContent.replace("```json","")
        .replace("```", "")
        .trim();
 
         ResumeGenerationResponse response = objectMapper.readValue(cleanedResponse, ResumeGenerationResponse.class);
         response.setGeneratedAt(LocalDateTime.now());
+        Long userId = jwtService.extractUserId(authToken.substring(7));
+            SaveGeneratedResumeRequest saveRequest = new SaveGeneratedResumeRequest(
+                    response.getTailoredResume(),
+                    userId,
+                    request.getJobTitle(),
+                    request.getCompanyName()
+            );
+            Long savedResumeId = userServiceClient.saveGeneratedResume(saveRequest, authToken);
+            response.setSavedResumeId(savedResumeId);
         return response; 
     } catch( Exception e){
        log.error("Failed to generate or parse tailored resume from LLM", e);
@@ -139,7 +147,7 @@ public class MatchServiceImpl implements MatchService {
     }
 }
 
-      public String promptBuilder(ResumeGenerationRequest request, String resumeParsedText){
+      private String promptBuilder(ResumeGenerationRequest request, String resumeParsedText){
            return String.format(
             """
             You are an expert career consultant and professional resume writer. 

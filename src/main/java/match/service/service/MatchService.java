@@ -4,6 +4,8 @@ import match.service.dto.MatchScoreRequest;
 import match.service.dto.MatchScoreResponse;
 import match.service.dto.ResumeGenerationRequest;
 import match.service.dto.ResumeGenerationResponse;
+import org.springframework.stereotype.Service;
+
 
 public interface MatchService {
 
