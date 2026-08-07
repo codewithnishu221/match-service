@@ -22,7 +22,7 @@ public class MatchController {
 
     private final MatchService matchService;
     @PostMapping("/score")
-    public ResponseEntity<MatchScoreResponse> createScore(@RequestBody MatchScoreRequest matchScoreRequest, HttpServletRequest httpServletRequest){
+    public ResponseEntity<MatchScoreResponse> createScore(@RequestBody @Valid MatchScoreRequest matchScoreRequest, HttpServletRequest httpServletRequest){
         String authHeader = httpServletRequest.getHeader("Authorization");
         MatchScoreResponse response = matchService.calculateMatchScore(matchScoreRequest, authHeader);
 
