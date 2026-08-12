@@ -2,12 +2,11 @@ package match.service.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import lombok.AllArgsConstructor;
-import lombok.NoArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import match.service.security.CustomUserDetailsService;
+import org.springframework.ai.ollama.api.OllamaApi;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.jackson.Jackson2ObjectMapperBuilderCustomizer;
+import org.springframework.cloud.client.loadbalancer.LoadBalanced;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
@@ -18,12 +17,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.client.RestClient;
 
 @Configuration
-@AllArgsConstructor
 @RequiredArgsConstructor
 public class AppConfig {
 
-    @Value("${app.services.resume-service-url}")
-    private String resumeServiceUrl;
     private final CustomUserDetailsService customUserDetailsService;
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -37,16 +33,23 @@ public class AppConfig {
     return provider;
 }
 
+    @Bean
+    @LoadBalanced
+    public RestClient.Builder loadBalancedRestClientBuilder() {
+        return RestClient.builder();
+    }
    @Bean
-    public RestClient restClient(){
-        return RestClient.builder()
-                .baseUrl(resumeServiceUrl)
-                .build();
+   public RestClient restClient(RestClient.Builder builder){
+        return builder.baseUrl("lb://USER-SERVICE").build();
    }
-   @Bean
+
+    @Bean
     public ObjectMapper objectMapper(Jackson2ObjectMapperBuilder builder){
         return  builder.modules(new JavaTimeModule()).build();
    }
-
+    @Bean
+    public OllamaApi ollamaApi(@Value("${spring.ai.ollama.base-url:http://localhost:11434}") String baseUrl) {
+        return new OllamaApi(baseUrl);
+    }
 
     }
