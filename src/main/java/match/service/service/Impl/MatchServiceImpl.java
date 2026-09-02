@@ -1,6 +1,8 @@
 package match.service.service.Impl;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import lombok.AllArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -32,6 +34,7 @@ public class MatchServiceImpl implements MatchService {
     private final JwtService jwtService;
     @Value("${app.generation.temperature}")
     private double temp;
+    private final MeterRegistry meterRegistry;
 
     @Override
     public MatchScoreResponse calculateMatchScore(MatchScoreRequest request, String authToken) {
@@ -108,6 +111,7 @@ public class MatchServiceImpl implements MatchService {
 
     @Override
     public ResumeGenerationResponse generateTailoredResume(ResumeGenerationRequest request, String authToken) {
+        Timer.Sample sample = Timer.start(meterRegistry);
         Long resumeId = request.getResumeId();
         String resumeParsedText = userServiceClient.getResumeText(resumeId, authToken);
         if( resumeParsedText == null || resumeParsedText.isBlank()){
@@ -140,10 +144,18 @@ public class MatchServiceImpl implements MatchService {
             );
             Long savedResumeId = userServiceClient.saveGeneratedResume(saveRequest, authToken);
             response.setSavedResumeId(savedResumeId);
+            sample.stop(Timer.builder("resume.generation.time")
+                    .description("Time taken to generate tailored resume")
+                    .tag("status", "success")
+                    .register(meterRegistry));
         return response; 
     } catch( Exception e){
        log.error("Failed to generate or parse tailored resume from LLM", e);
-            throw new RuntimeException("Failed to generate tailored resume. Please try again later.", e); 
+            sample.stop(Timer.builder("resume.generation.time")
+                    .description("Time taken to generate tailored resume")
+                    .tag("status", "failure")
+                    .register(meterRegistry));
+            throw new RuntimeException("Failed to generate tailored resume. Please try again later.", e);
     }
 }
 
