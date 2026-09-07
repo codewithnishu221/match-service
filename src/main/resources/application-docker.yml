@@ -1,0 +1,16 @@
+spring:
+  ai:
+    ollama:
+      base-url: http://host.docker.internal:11434
+eureka:
+  client:
+    service-url:
+      defaultZone: http://eureka-server:8761/eureka/
+app:
+  jwt:
+    secret: ${JWT_SECRET}
+    expiration: 86400000
+  generation:
+    temperature: 0.3
+  services:
+    user-service-url: http://user-service:8081
