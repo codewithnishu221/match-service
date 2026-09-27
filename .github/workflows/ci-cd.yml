@@ -7,7 +7,6 @@ on:
 
 env:
   DOCKER_IMAGE: ${{ secrets.DOCKER_USERNAME }}/match-service
-  JAVA_VERSION: '17'
 
 jobs:
   test:
@@ -19,20 +18,23 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      # 1. Set up JDK 17 for building and running your application tests
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
-          java-version: ${{ env.JAVA_VERSION }}
+          java-version: '17'
           distribution: 'temurin'
 
       - name: Cache Maven packages
         uses: actions/cache@v4
         with:
           path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          key: \({{ runner.os }}-maven-\){{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
 
-      # Match service tests don't need DB or Kafka
-      # they only call external AI services which are mocked in tests
+      # Run tests using Java 17
       - name: Run tests
         env:
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
@@ -41,6 +43,14 @@ jobs:
           APP_TAVILY_API_KEY: test-key
         run: mvn clean test
 
+      # 2. Set up JDK 21 exclusively for SonarCloud Scanner requirements
+      - name: Set up JDK 21 for SonarCloud Scanner
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      # 3. Execute SonarCloud analysis using JDK 21
       - name: SonarCloud Analysis
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -48,9 +58,10 @@ jobs:
         run: |
           mvn verify sonar:sonar \
             -DskipTests \
-            -Dsonar.projectKey= codewithnishu221_match-service \
-            -Dsonar.organization= codewithnishu221 \
-            -Dsonar.host.url=     https://sonarcloud.io
+            -Dsonar.projectKey=codewithnishu221_match-service \
+            -Dsonar.organization=codewithnishu221 \
+            -Dsonar.host.url=https://sonarcloud.io
+
   docker:
     name: Build and Push Docker Image
     runs-on: ubuntu-latest
@@ -60,11 +71,13 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
       - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
-          username: ${{secrets.DOCKER_USERNAME }}
+          username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_TOKEN }}
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -74,8 +87,9 @@ jobs:
         with:
           images: ${{ env.DOCKER_IMAGE }}
           tags: |
-            type=sha, prefix=sha-
+            type=sha,prefix=sha-
             type=raw,value=latest
+
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
@@ -85,5 +99,3 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
-          
