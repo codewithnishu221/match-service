@@ -1,0 +1,29 @@
+spring:
+  application:
+    name: MATCH-SERVICE
+  ai:
+    ollama:
+      base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
+      chat:
+        model: llama3.2
+      embedding:
+        model: nomic-embed-text
+
+server:
+  port: ${PORT:8083}
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URL:http://eureka-server.railway.internal:8761/eureka/}
+  instance:
+    prefer-ip-address: true
+
+app:
+  jwt:
+    secret: ${JWT_SECRET}
+    expiration: 86400000
+  generation:
+    temperature: 0.3
+  services:
+    user-service-url: http://user-service.railway.internal:8081
